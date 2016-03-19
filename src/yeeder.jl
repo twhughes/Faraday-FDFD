@@ -1,4 +1,4 @@
-function yeeder(NGRID,RES,BC,kinc)
+function yeeder(NGRID,RES,BC,kinc=[0,0])
 
         #######################################################################
         # Calculate yee grid derivative operators
@@ -12,6 +12,7 @@ function yeeder(NGRID,RES,BC,kinc)
         #       bc = 0     -> Dirichlet (noes not require kinc)
         #       bc = -2    -> Periodic  (requires kinc)
         # kinc = [kx, ky]   incident wave vector (only required for periodic BC
+        #
         #######################################################################
 
 
@@ -21,14 +22,17 @@ function yeeder(NGRID,RES,BC,kinc)
         (kx,ky) = kinc;
 
         N = Nx*Ny;
-        DEX = spzeros(N,N);
-        DEY = spzeros(N,N);
+        Lambda_x = dx*Nx;
+        Lambda_y = dy*Ny;
+
+        DEX = spzeros(Complex64,N,N);
+        DEY = spzeros(Complex64,N,N);
 
    # Construct DE operators
         # diagonal terms
         for i in (1:N)
             DEX[i,i] = -1;
-            DEY[i,i] = -1
+            DEY[i,i] = -1;
         end
 
         # off diagonal terms for DEX
@@ -42,26 +46,35 @@ function yeeder(NGRID,RES,BC,kinc)
         end
 
         # fix DEX boundary conditions for Dirichlet boundary conditions
-        if (xbc == 0)
-            for i in (Nx:Nx:N-Nx)
-                DEX[i,i+1] = 0;
+        for i in (Nx:Nx:N-Nx)
+            DEX[i,i+1] = 0;
+        end
+
+        # if periodic boundary conditions in x
+
+        if (xbc == -2)
+            for i in (Nx:Nx:N)
+               DEX[i,i-Nx+1] = exp(im*Lambda_x*kx);
             end
         end
 
+        if (ybc == -2)
+            for i in (N-Nx:N)
+               DEY[i,i-N+Nx+1] = exp(im*Lambda_y*ky);
+            end
+        end
 
+        if (Nx == 1)
+            DEX = (im*kx).*speye(N);
+        end
+        if (Ny == 1)
+            DEY = (im*ky).*speye(N);
+        end
 
         DEX = DEX./dx;
         DEY = DEY./dy;
 
         DHX = -DEX';
         DHY = -DEY';
-        return (DEX,DEY,DHX,DHY)
+        return (DEX,DEY,DHX,DHY);
 end
-
-NGRID = [3 2];
-RES = [0.1 1];
-BC = [0 0];
-kinc = [0 0];
-(DEX,DEY,DHX,DHY) = yeeder(NGRID,RES,BC,kinc);
-full(DEX)
-#full(DEY);
