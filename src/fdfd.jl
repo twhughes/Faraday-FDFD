@@ -18,15 +18,13 @@
 
 include("calcpml_2d.jl");
 
-ER2  = ones(Complex64,20,20);
-MUR2 = ones(Complex64,20,20);
-RES  = [1e-9,1e-9];
-NPML = [0 0 0 0];
-lambda0 = 1;
-Pol = "Hz";
-theta = 0;
+function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,theta,Q; verbose=false);
 
-function fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
+    if (verbose)
+        tic();
+        tic();
+        println("(0) loading variables and doing error checking");
+    end
 
     # (0) load variables and do error checking
     k0 = 2*pi/lambda0;
@@ -36,14 +34,32 @@ function fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
     (Nx2,Ny2) = size(ER2);
     NGRID = (Nx2,Ny2);
 
+    if (verbose)
+        toc();
+        tic();
+        println("(1) determining material properties in reflected and transmitted regions");
+    end
     # (1) determine material properties in reflected and transmitted regions
+
     e_ref = 1;   e_trans = 1;
     mu_ref = 1;  mu_trans = 1;
     n_ref = sqrt(mu_ref*e_ref);
     n_trans = sqrt(mu_trans*e_trans);
 
+    if (verbose)
+        toc();
+        tic();
+        println("(2) calculating PML terms");
+    end
+
     # (2) compute PML terms s_x(x,y) s_y(x,y)
     (sx,sy) = calcpml_2d(NGRID,NPML);
+
+    if (verbose)
+        toc();
+        tic();
+        println("(3) incorporating PML into 2x material grid");
+    end
 
     # (3) incorporate PML into 2x material grid
     ERxx = ER2./sx.*sy;
@@ -52,6 +68,12 @@ function fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
     MURxx = ER2./sx.*sy;
     MURyy = ER2.*sx./sy;
     MURzz = ER2.*sx.*sy;
+
+    if (verbose)
+        toc();
+        tic();
+        println("(4) parsing from 2x to 1x grid");
+    end
 
     # (4) parse down into 1x grid
     MURxx = MURxx[1:2:Nx2,2:2:Ny2];
@@ -63,29 +85,63 @@ function fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
     (Nx,Ny) = size(ERxx);
     NGRID = [Nx,Ny];
 
-    # (5) construct diagonal materials matrices
-    ERxx_inv = spdiagm(1/ERxx[:]);        ERxx = spdiagm(ERxx[:]);
-    ERyy_inv = spdiagm(1/ERyy[:]);        ERyy = spdiagm(ERyy[:]);
-    ERzz_inv = spdiagm(1/ERzz[:]);        ERzz = spdiagm(ERzz[:]);
-    MURxx_inv = spdiagm(1/MURxx[:]);      MURxx = spdiagm(MURxx[:]);
-    MURyy_inv = spdiagm(1/MURyy[:]);      MURyy = spdiagm(MURyy[:]);
-    MURzz_inv = spdiagm(1/MURzz[:]);      MURzz = spdiagm(MURzz[:]);
+    if (verbose)
+        toc();
+        tic();
+        println("(5) constructing diagonal material matrices");
+    end
 
+    # (5) construct diagonal materials matrices
+    ERxx_inv = spdiagm(1./ERxx[:]);
+    #ERxx = spdiagm(ERxx[:]);
+    ERyy_inv = spdiagm(1./ERyy[:]);
+    #ERyy = spdiagm(ERyy[:]);
+    #ERzz_inv = spdiagm(1./ERzz[:]);
+    ERzz = spdiagm(ERzz[:]);
+    MURxx_inv = spdiagm(1./MURxx[:]);
+    #MURxx = spdiagm(MURxx[:]);
+    MURyy_inv = spdiagm(1./MURyy[:]);
+    #MURyy = spdiagm(MURyy[:]);
+    #MURzz_inv = spdiagm(1./MURzz[:]);
+    MURzz = spdiagm(MURzz[:]);
+
+    if (verbose)
+        toc();
+        tic();
+        println("(6) computing incident wave vector terms");
+    end
 
     # (6) compute incident wave vector terms
     kinc = k0*n_ref*[sin(theta/180.0*pi); cos(theta/180.0*pi)];
 
+    if (verbose)
+        toc();
+        tic();
+        println("(7) calculating Derivative matrices");
+    end
+
     # (7) calculate yee grid finite difference derivative matrices DEX,DEY,DHX,DHY
     (DEX,DEY,DHX,DHY) = yeeder(NGRID,k0*RES,BC,kinc/k0);
 
-    # (8) construct system matrix 'A' for the mode of interest
+    if (verbose)
+        toc();
+        tic();
+        println("(8) constructing system matrix A");
+    end
 
+    # (8) construct system matrix 'A' for the mode of interest
     if (Pol == "Hz")
         A = DHX*MURyy_inv*DEX + DHY*MURxx_inv*DEY+ERzz;
     elseif (Pol == "Ez")
         A = DEX*ERyy_inv*DHX + DEY*ERxx_inv*DHY+MURzz;
     else
         error = "throw error";
+    end
+
+    if (verbose)
+        toc();
+        tic();
+        println("(9) computing source field without TFSF");
     end
 
     # (9) compute source field without TFSF
@@ -98,6 +154,12 @@ function fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
         end
     end
 
+    if (verbose)
+        toc();
+        tic();
+        println("(10) computing source");
+    end
+
     # (10) calculate source
     if (true)
         # compute TFSF source vector b = (QA-AQ)f_src
@@ -105,8 +167,20 @@ function fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
         b = (Q*A-A*Q)*f_src[:];
     end
 
+    if (verbose)
+        toc();
+        tic();
+        println("(11) solving Af=b for fields");
+    end
+
     # (11) compute fields by solving f = inv(A)*b
     f = A\b;
+
+    if (verbose)
+        toc();
+        tic();
+        println("(12) converting into physical fields");
+    end
 
     # (12) convert back into fields
     if (Pol == "Hz")
@@ -118,26 +192,32 @@ function fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
         Ez = Hz;
     else
         Ez = reshape(f,Nx,Ny);
-        Ex = Hz;
-        Ey = Hz;
-        Hx = Hz;
-        Hy = Hz;
-        Hz = Hz;
+        Ex = Ez;
+        Ey = Ez;
+        Hx = Ez;
+        Hy = Ez;
+        Hz = Ez;
     end
 
-return (Ex,Ey,Ez,Hx,Hy,Hz);
+    if (verbose)
+        toc();
+        println("(~) finished with FDFD");
+        toc();
+    end
+
+    return (Ex,Ey,Ez,Hx,Hy,Hz);
 end
 
-Nx2 = 100;          Ny2 = 100;
-Nx = div(Nx2,2);     Ny = div(Ny2,2);
-ER2  = ones(Complex64,Nx2,Ny2);
-MUR2 = ones(Complex64,Nx2,Ny2);
-RES  = [1e-8,1e-8];
-NPML = [10 10 10 10]
-lambda0 = 1e-6;
-Pol = "Hz";
-theta = 10;
-Q = zeros(Int,Nx,Ny);
-Q[:,1:20] = 1;
-(Ex,Ey,Ez,Hx,Hy,Hz) = fdfd(ER2,MUR2,RES,NPML,lambda0,Pol,theta,Q);
-
+#BC = [0,0]
+#Nx2 = 100;          Ny2 = 100;
+#Nx = div(Nx2,2);     Ny = div(Ny2,2);
+#ER2  = ones(Complex64,Nx2,Ny2);
+#MUR2 = ones(Complex64,Nx2,Ny2);
+#RES  = [1e-8,1e-8];
+#NPML = [10 10 10 10]
+#lambda0 = 1e-6;
+#Pol = "Hz";
+#theta = 10;
+#Q = zeros(Int,Nx,Ny);
+#Q[:,1:20] = 1;
+#(Ex,Ey,Ez,Hx,Hy,Hz) = fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,theta,Q);

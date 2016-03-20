@@ -22,28 +22,17 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
         (kx,ky) = kinc;
 
         N = Nx*Ny;
+
         Lambda_x = dx*Nx;
         Lambda_y = dy*Ny;
 
-        DEX = spzeros(Complex64,N,N);
-        DEY = spzeros(Complex64,N,N);
+        DEX = -1*speye(Complex64,N,N);
+        DEY = -1*speye(Complex64,N,N);
 
-   # Construct DE operators
-        # diagonal terms
-        for i in (1:N)
-            DEX[i,i] = -1;
-            DEY[i,i] = -1;
-        end
+        # Construct DE operators
 
-        # off diagonal terms for DEX
-        for i in (1:N-1)
-            DEX[i,i+1] = 1;
-        end
-
-        # off diagonal terms for DEY
-        for i in (1:N-Nx)
-            DEY[i,i+Nx] = 1;
-        end
+        DEX = DEX+spdiagm(ones(1,N)[:],1)[:,1:N];
+        DEY = DEY+spdiagm(ones(1,N)[:], Nx)[:,1:N];
 
         # fix DEX boundary conditions for Dirichlet boundary conditions
         for i in (Nx:Nx:N-Nx)
@@ -59,9 +48,10 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
         end
 
         if (ybc == -2)
-            for i in (N-Nx:N)
-               DEY[i,i-N+Nx+1] = exp(im*Lambda_y*ky);
-            end
+           # for i in (N-Nx:N)
+           #    DEY[i,i-N+Nx+1] = exp(im*Lambda_y*ky);
+           # end
+            DEY = DEY+transpose(spdiagm(exp(im*Lambda_y*ky)*ones(1,N)[:], N-Nx-1)[:,1:N]);
         end
 
         if (Nx == 1)
