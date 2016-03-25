@@ -33,6 +33,7 @@ function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,Q; verbose=false,TFSF=false,theta
     (Nxlo,Nxhi,Nylo,Nyhi) = NPML;
     (Nx2,Ny2) = size(ER2);
     NGRID = (Nx2,Ny2);
+    RES = [dx,dy];
 
     if (verbose) toc(); tic(); println("(1) determining material properties in reflected and transmitted regions");  end
     # (1) determine material properties in reflected and transmitted regions
@@ -73,16 +74,10 @@ function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,Q; verbose=false,TFSF=false,theta
 
     # (5) construct diagonal materials matrices
     ERxx_inv = spdiagm(1./ERxx[:]);
-    #ERxx = spdiagm(ERxx[:]);
     ERyy_inv = spdiagm(1./ERyy[:]);
-    #ERyy = spdiagm(ERyy[:]);
-    #ERzz_inv = spdiagm(1./ERzz[:]);
     ERzz = spdiagm(ERzz[:]);
     MURxx_inv = spdiagm(1./MURxx[:]);
-    #MURxx = spdiagm(MURxx[:]);
     MURyy_inv = spdiagm(1./MURyy[:]);
-    #MURyy = spdiagm(MURyy[:]);
-    #MURzz_inv = spdiagm(1./MURzz[:]);
     MURzz = spdiagm(MURzz[:]);
 
     if (verbose) toc(); tic(); println("(6) computing incident wave vector terms"); end
@@ -141,35 +136,21 @@ function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,Q; verbose=false,TFSF=false,theta
     # (12) convert back into fields
     if (Pol == "Hz")
         Hz = reshape(f,Nx,Ny);
-        Hx = Hz;
-        Hy = Hz;
-        Ex = Hz;
-        Ey = Hz;
+        Ex = reshape(DHY*f,Nx,Ny);
+        Ey = reshape(DHX*f,Nx,Ny);
         Ez = Hz;
+        Hx = Ex;
+        Hy = Ey;
     else
         Ez = reshape(f,Nx,Ny);
-        Ex = Ez;
-        Ey = Ez;
-        Hx = Ez;
-        Hy = Ez;
+        Hx = reshape(DEY*f,Nx,Ny);
+        Hy = reshape(DEX*f,Nx,Ny);
         Hz = Ez;
+        Ex = Hx;
+        Ey = Hy;
     end
 
     if (verbose) toc(); println("(~) finished with FDFD"); toc(); end
 
-    return (Ex,Ey,Ez,Hx,Hy,Hz,b);
+    return (Ex,Ey,Ez,Hx,Hy,Hz);
 end
-
-#BC = [0,0]
-#Nx2 = 100;          Ny2 = 100;
-#Nx = div(Nx2,2);     Ny = div(Ny2,2);
-#ER2  = ones(Complex64,Nx2,Ny2);
-#MUR2 = ones(Complex64,Nx2,Ny2);
-#RES  = [1e-8,1e-8];
-#NPML = [10 10 10 10]
-#lambda0 = 1e-6;
-#Pol = "Hz";
-#theta = 10;
-#Q = zeros(Int,Nx,Ny);
-#Q[:,1:20] = 1;
-#(Ex,Ey,Ez,Hx,Hy,Hz) = fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,theta,Q);

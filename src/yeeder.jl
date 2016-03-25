@@ -31,8 +31,17 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
 
         # Construct DE operators
 
-        DEX = DEX+spdiagm(ones(1,N)[:],1)[:,1:N];
-        DEY = DEY+spdiagm(ones(1,N)[:], Nx)[:,1:N];
+        if (Nx > 1)
+            DEX = DEX+spdiagm(ones(1,N)[:],1)[:,1:N];
+        else
+            DEX = DEX+spdiagm(zeros(1,N)[:],1)[:,1:N];
+        end
+
+        if (Ny > 1)
+            DEY = DEY+spdiagm(ones(1,N)[:],Nx)[:,1:N];
+        else
+            DEY = DEY+spdiagm(zeros(1,N)[:],Nx)[:,1:N];
+        end
 
         # fix DEX boundary conditions for Dirichlet boundary conditions
         for i in (Nx:Nx:N-Nx)
@@ -51,13 +60,13 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
            # for i in (N-Nx:N)
            #    DEY[i,i-N+Nx+1] = exp(im*Lambda_y*ky);
            # end
-            DEY = DEY+transpose(spdiagm(exp(im*Lambda_y*ky)*ones(1,N)[:], N-Nx-1)[:,1:N]);
+            DEY = DEY+transpose(spdiagm(exp(im*Lambda_y*ky)*ones(1,N)[:], N-Nx)[:,1:N]);
         end
 
-        if (Nx == 1)
+        if (Nx == 1 && xbc == -2)
             DEX = (im*kx).*speye(N);
         end
-        if (Ny == 1)
+        if (Ny == 1 && ybc == -2)
             DEY = (im*ky).*speye(N);
         end
 
