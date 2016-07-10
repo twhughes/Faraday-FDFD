@@ -29,6 +29,15 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
         DEX = -1*speye(Complex64,N,N);
         DEY = -1*speye(Complex64,N,N);
 
+        if (BC[1] == -1)
+           kinc[1] = 0;
+           BC[1] = -2;
+        end
+        if (BC[2] == -1)
+           kinc[2] = 0;
+           BC[2] = -2;
+        end
+
         # Construct DE operators
 
         if (Nx > 1)
@@ -52,7 +61,8 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
 
         if (xbc == -2)
             for i in (Nx:Nx:N)
-               DEX[i,i-Nx+1] = exp(im*Lambda_x*kx);
+               #Bloch DEX[i,i-Nx+1] = exp(im*Lambda_x*kx);
+               DEX[i,i-Nx+1] = 1;#exp(im*Lambda_x*kx);
             end
         end
 
@@ -60,7 +70,8 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
            # for i in (N-Nx:N)
            #    DEY[i,i-N+Nx+1] = exp(im*Lambda_y*ky);
            # end
-            DEY = DEY+transpose(spdiagm(exp(im*Lambda_y*ky)*ones(1,N)[:], N-Nx)[:,1:N]);
+    #Bloch      #  DEY = DEY+transpose(spdiagm(exp(im*Lambda_y*ky)*ones(1,N)[:], N-Nx)[:,1:N]);
+            DEY = DEY+transpose(spdiagm(1*ones(1,N)[:], N-Nx)[:,1:N]);
         end
 
         if (Nx == 1 && xbc == -2)
@@ -70,6 +81,7 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
             DEY = (im*ky).*speye(N);
         end
 
+        #added this 2 to fix problems
         DEX = DEX./dx;
         DEY = DEY./dy;
 
@@ -77,3 +89,11 @@ function yeeder(NGRID,RES,BC,kinc=[0,0])
         DHY = -DEY';
         return (DEX,DEY,DHX,DHY);
 end
+
+NGRID = [3,3];
+BC = [0 0];
+RES = [0.2,0.3];
+
+(DEX,DEY,DHX,DHY) = yeeder(NGRID,RES,BC);
+full(DEX);
+

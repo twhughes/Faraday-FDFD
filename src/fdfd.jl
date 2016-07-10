@@ -54,9 +54,9 @@ function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,Q; verbose=false,TFSF=false,theta
     ERxx = ER2./sx.*sy;
     ERyy = ER2.*sx./sy;
     ERzz = ER2.*sx.*sy;
-    MURxx = ER2./sx.*sy;
-    MURyy = ER2.*sx./sy;
-    MURzz = ER2.*sx.*sy;
+    MURxx = MUR2./sx.*sy;
+    MURyy = MUR2.*sx./sy;
+    MURzz = MUR2.*sx.*sy;
 
     if (verbose) toc(); tic(); println("(4) parsing from 2x to 1x grid"); end
 
@@ -67,6 +67,8 @@ function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,Q; verbose=false,TFSF=false,theta
     ERxx  = ERxx[2:2:Nx2,1:2:Ny2];
     ERyy  = ERyy[1:2:Nx2,2:2:Ny2];
     ERzz  = ERzz[1:2:Nx2,1:2:Ny2];
+    eps = ERzz;
+
     (Nx,Ny) = size(ERxx);
     NGRID = [Nx,Ny];
 
@@ -136,15 +138,15 @@ function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,Q; verbose=false,TFSF=false,theta
     # (12) convert back into fields
     if (Pol == "Hz")
         Hz = reshape(f,Nx,Ny);
-        Ex = reshape(DHY*f,Nx,Ny);
-        Ey = reshape(DHX*f,Nx,Ny);
+        Ex = reshape(1im*ERxx_inv*DHY*f,Nx,Ny);
+        Ey = reshape(-1im*ERyy_inv*DHX*f,Nx,Ny);
         Ez = Hz;
         Hx = Ex;
         Hy = Ey;
     else
         Ez = reshape(f,Nx,Ny);
-        Hx = reshape(DEY*f,Nx,Ny);
-        Hy = reshape(DEX*f,Nx,Ny);
+        Hx = reshape(MURxx_inv*DEY*f,Nx,Ny);
+        Hy = reshape(-MURyy_inv*DEX*f,Nx,Ny);
         Hz = Ez;
         Ex = Hx;
         Ey = Hy;
@@ -152,5 +154,5 @@ function fdfd(ER2,MUR2,RES,NPML,BC,lambda0,Pol,Q; verbose=false,TFSF=false,theta
 
     if (verbose) toc(); println("(~) finished with FDFD"); toc(); end
 
-    return (Ex,Ey,Ez,Hx,Hy,Hz);
+    return (Ex,Ey,Ez,Hx,Hy,Hz,eps,DHX,DHY);
 end
